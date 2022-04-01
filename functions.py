@@ -15,7 +15,7 @@ def files_parse():
         if os.path.exists(input_dir):
             files = []
             for _, _, data in os.walk(input_dir):
-                for file in data:
+                for file in reversed(data):
                     if re.search(r'.csv', file):
                         files.append(file)
             if not files:
@@ -29,6 +29,14 @@ def files_parse():
     except IOError:
         print('Отсутствуют файлы с ключевыми словами\nНеобходимо использовать файлы формата .csv')
         sys.exit()
+
+
+def read_keys(files):
+    keys = []
+    for filename in files:
+        key_words = pd.read_csv(input_dir + filename, header=None)[0].tolist()
+        keys += key_words
+    return keys
 
 
 def links_parser(session, key, engine):

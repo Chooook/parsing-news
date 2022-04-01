@@ -1,11 +1,12 @@
 import datetime
 from time import time
 
-input_dir = 'data'
-output_dir = 'output'
+input_dir = 'data/'
+output_dir = 'output/'
 
 yesterday = (datetime.date.today() - datetime.timedelta(1)).strftime('%Y%m%d')
 now = str(int(time()))
+"""Возможно, неправильно считается unix-time(now), т.к. не уверен, какое должно использоваться в фильтре по яндексу"""
 
 headers = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
