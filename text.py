@@ -24,14 +24,14 @@ if not df.empty:
             correct_text = []
             flag = False
             for par in text:
-                if not flag:
-                    while par != title:
-                        flag = False
-                        continue
-                    flag = True
-                else:
-                    if par.strip():
-                        correct_text.append(par)
+                # if not flag:
+                #     while par != title:
+                #         flag = False
+                #         continue
+                #     flag = True
+                # else:
+                if par.strip():
+                    correct_text.append(par)
             correct_text = '\n'.join(correct_text)
             texts.append(correct_text)
     df['Тексты'] = texts
