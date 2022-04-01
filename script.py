@@ -1,11 +1,9 @@
-import os
-
 import requests
 
 from functions import *
 
-if not os.path.exists(directory):
-    os.makedirs(directory)
+
+files = files_parse()
 
 session = requests.Session()
 session.headers.update(headers)
@@ -16,16 +14,11 @@ except IOError:
     print('Проблемы с интернет подключением!')
 else:
 
-    result = pd.DataFrame(columns=('Поисковик', 'Ключевое слово', 'Ссылки', 'Наименование', 'Тексты'))
+    result = pd.DataFrame(columns=('Поисковик', 'Ключевое слово', 'Ссылки', 'Заголовок', 'Тексты'))
 
     for engine in engines.__iter__():
 
-        for filename in (
-            'ml words',
-            'one word',
-            'two words',
-            'three words'
-        ):
+        for filename in files:
             key_words = pd.read_csv('data/' + filename + '.csv', header=None)[0].tolist()
 
             for key in tqdm(key_words):
@@ -37,7 +30,7 @@ else:
                      pd.DataFrame({
                          'Поисковик': engine,
                          'Ключевое слово': key,
-                         'Наименование': titles,
+                         'Заголовок': titles,
                          'Ссылки': links
                      })
                      ],
@@ -45,7 +38,7 @@ else:
                 )
 
     result.drop_duplicates(['Ссылки'], inplace=True, ignore_index=True)
-    result.drop_duplicates(['Наименование'], inplace=True, ignore_index=True)
+    result.drop_duplicates(['Заголовок'], inplace=True, ignore_index=True)
     # result.to_excel(directory + '/'
     #                 + 'resultsNoText.xlsx',
     #                 index=False)
@@ -55,6 +48,6 @@ else:
     #                 index=False)
     session.close()
     result = clear_texts(result)
-    result.to_excel(directory + '/'
+    result.to_excel(output_dir + '/'
                     + 'resultsAfter.xlsx',
                     index=False)

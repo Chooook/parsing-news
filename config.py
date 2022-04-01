@@ -1,7 +1,8 @@
 import datetime
 from time import time
 
-directory = 'output'
+input_dir = 'data'
+output_dir = 'output'
 
 yesterday = (datetime.date.today() - datetime.timedelta(1)).strftime('%Y%m%d')
 now = str(int(time()))

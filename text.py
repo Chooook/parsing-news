@@ -57,6 +57,6 @@ for row in df.index:
 #         to_drop.append(row)
 # df.drop(to_drop, inplace=True)
 
-df.to_excel(directory + '/'
+df.to_excel(output_dir + '/'
             + 'newDF1.xlsx',
             index=False)

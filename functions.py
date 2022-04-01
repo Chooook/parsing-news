@@ -1,4 +1,6 @@
+import os
 import re
+import sys
 
 import pandas as pd
 from bs4 import BeautifulSoup
@@ -6,6 +8,27 @@ from rapidfuzz import fuzz
 from tqdm import tqdm
 
 from config import *
+
+
+def files_parse():
+    try:
+        if os.path.exists(input_dir):
+            files = []
+            for _, _, data in os.walk(input_dir):
+                for file in data:
+                    if re.search(r'.csv', file):
+                        files.append(file)
+            if not files:
+                raise IOError
+            if not os.path.exists(output_dir):
+                os.makedirs(output_dir)
+            return files
+        else:
+            os.makedirs(input_dir)
+            raise IOError
+    except IOError:
+        print('Отсутствуют файлы с ключевыми словами\nНеобходимо использовать файлы формата .csv')
+        sys.exit()
 
 
 def links_parser(session, key, engine):
