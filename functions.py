@@ -10,6 +10,14 @@ from tqdm import tqdm
 from config import *
 
 
+def connection_check(session):
+    try:
+        session.get('https://ya.ru/')
+    except IOError:
+        print('Проблемы с интернет подключением!')
+        sys.exit()
+
+
 def files_parse():
     try:
         if os.path.exists(input_dir):
@@ -57,14 +65,14 @@ def links_parser(session, key, engine):
         if engine == 'yandex':
             for el in soup.findAll({'a': True}, class_='mg-snippet__url'):
                 link = el['href']
-                if link.find('.ua/') == -1:
+                if link.find('.ua/') == -1 and link.find('.uz/') == -1:
                     tail = link[link.find('utm')-1:]
                     link = link.replace(tail, '')
                     title = el.div.span.text
                     flag = False
                     if titles:
                         for elem in titles:
-                            if fuzz.token_sort_ratio(elem, title) >= 70:
+                            if fuzz.token_sort_ratio(elem, title) >= 60:
                                 flag = True
                     else:
                         links.append(link)
@@ -81,7 +89,7 @@ def links_parser(session, key, engine):
                     flag = False
                     if titles:
                         for elem in titles:
-                            if fuzz.token_sort_ratio(elem, title) >= 70:
+                            if fuzz.token_sort_ratio(elem, title) >= 60:
                                 flag = True
                     else:
                         links.append(link)
@@ -132,14 +140,10 @@ def clear_texts(df):
     to_drop = []
     for row in df.index:
         text = df.loc[row, 'Тексты']
-        if text and pd.notna(text) and text != 'Не удалось выгрузить данные!!!':
+        if pd.notna(text) and text != 'Не удалось выгрузить данные!!!':
             key = df.loc[row, 'Ключевое слово']
-            if key.upper() == key:
-                if not re.search(rf'\b{key}\b', text):
-                    to_drop.append(row)
-            else:
-                if not re.search(rf'\b{key.lower()}\b', text.lower()):
-                    to_drop.append(row)
+            if not re.search(rf'\b{key.lower()}\b', text.lower()):
+                to_drop.append(row)
         else:
             to_drop.append(row)
     df.drop(to_drop, inplace=True)
