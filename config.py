@@ -1,7 +1,8 @@
 import datetime
 from time import time
 
-input_dir = 'data/'
+input_dir = 'data/аналитики/'
+# input_dir = 'data/ML/'
 output_dir = 'output/'
 
 yesterday = (datetime.date.today() - datetime.timedelta(1)).strftime('%Y%m%d')
