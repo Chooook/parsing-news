@@ -40,10 +40,10 @@ result.drop_duplicates(['Ссылки'], inplace=True, ignore_index=True)
 #                 index=False)
 result['Тексты'] = text_parser(result, session)
 # result.to_excel(output_dir + '/'
-#                 + 'resultsBefore.xlsx',
+#                 + 'results_clear_text_findAll.xlsx',
 #                 index=False)
 session.close()
 result = clear_texts(result)
 result.to_excel(output_dir + '/'
-                + 'resultsAfter.xlsx',
+                + 'results_.xlsx',
                 index=False)

@@ -118,7 +118,10 @@ def text_parser(df, session):
                     # if div.find({'div': True}):
                     #     continue
                     if div.find({'p': True}):
-                        for el in div.findAll({'p': True, 'li': True}):
+                        for el in div.findAll({'p': True,
+                                               'li': True,
+                                               # 'div': True
+                                               }):
                             while el.text not in text:
                                 text.append(el.text)
                 # text = soup.get_text(separator='\n', strip=True).split('\n')
