@@ -13,12 +13,13 @@ from config import *
 
 def connection_check(session):
     try:
-        session.get('https://ya.ru/')
+        session.get('https://yandex.ru/')
     except requests.exceptions.HTTPError as http_err:
         print(f'Проблемы с интернет подключением: {http_err}')
         sys.exit()
     except Exception as err:
         print(f'Ошибка: {err}')
+        sys.exit()
 
 
 def files_parse():
@@ -72,9 +73,9 @@ def links_parser(session, keys, engine, morph):
                 + qe
             )
         except requests.exceptions.HTTPError as http_err:
-            print(f'Запрос {key} не выполнен! Ошибка: {http_err}')
+            print(f'Запрос "{key}" не выполнен! Проблемы с интернет подключением: {http_err}')
         except Exception as err:
-            print(f'Ошибка: {err}')
+            print(f'Запрос "{key}" не выполнен! Ошибка: {err}')
         else:
             soup = BeautifulSoup(response.text, 'lxml')
 
@@ -150,10 +151,10 @@ def text_parser(df, session):
             try:
                 response = session.get(link)
             except requests.exceptions.HTTPError as http_err:
-                print(f'Проблемы с интернет подключением: {http_err}')
+                print(f'Не удалось выгрузить данные с {link}!!! Проблемы с интернет подключением: {http_err}')
                 texts.append(f'Не удалось выгрузить данные!!! Проблемы с интернет подключением: {http_err}')
             except Exception as err:
-                print(f'Ошибка: {err}')
+                print(f'Не удалось выгрузить данные с {link}!!! Ошибка: {err}')
                 texts.append(f'Не удалось выгрузить данные!!! Ошибка: {err}')
             else:
                 response.encoding = 'utf8'
@@ -188,7 +189,7 @@ def clear_texts(df):
     to_drop = set()
     for row in df.index:
         text = df.loc[row, 'Тексты']
-        if pd.notna(text) and text != 'Не удалось выгрузить данные!!!':
+        if pd.notna(text):
             key = df.loc[row, 'Ключевое слово']
             if not re.search(rf'\b{key.lower()}\b', text.lower()):
                 to_drop.add(row)
