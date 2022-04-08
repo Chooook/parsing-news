@@ -1,9 +1,14 @@
 import datetime
 from time import time
 
-input_dir = 'data/аналитики/'
+# input_dir = 'data/аналитики/'
+input_dir = 'data/pymorphy2/'
 # input_dir = 'data/ML/'
 output_dir = 'output/'
+
+links = []
+titles = []
+keys_for_table = []
 
 yesterday = (datetime.date.today() - datetime.timedelta(1)).strftime('%Y%m%d')
 now = str(int(time()))
@@ -39,3 +44,5 @@ engines = {
     #     query_end['google'],
     # ),
 }
+
+# response.content.decode('windows-1251') попробовать решить траблы с кодировкой

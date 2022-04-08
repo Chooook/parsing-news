@@ -47,65 +47,99 @@ def read_keys(files):
     return keys
 
 
-def links_parser(session, key, engine):
-    links = []
-    titles = []
-    try:
-        qs, qe = engines[engine]
-        response = session.get(
-            qs
-            + key
-            + qe
-        )
-    except IOError:
-        print(f'Запрос {key} не выполнен!(Не удалось подключиться)')
-    else:
-        soup = BeautifulSoup(response.text, 'lxml')
+def links_parser(session, keys, engine, morph):
 
-        if engine == 'yandex':
-            for el in soup.findAll({'a': True}, class_='mg-snippet__url'):
-                link = el['href']
-                if link.find('.ua/') == -1 and link.find('.uz/') == -1:
-                    tail = link[link.find('utm')-1:]
-                    link = link.replace(tail, '')
-                    title = el.div.span.text
-                    flag = False
-                    if titles:
-                        for elem in titles:
-                            if fuzz.token_sort_ratio(elem, title) >= 60:
-                                flag = True
-                    else:
-                        links.append(link)
-                        titles.append(title)
-                    if not flag:
-                        links.append(link)
-                        titles.append(title)
+    def normal_form_str(not_normal):
+        normal = []
+        not_normal = ''.join(re.findall(r'\w|\s', not_normal))
+        for word in not_normal.split():
+            normal_word = morph.parse(word)[0].normal_form
+            normal.append(normal_word)
+        normal = ' '.join(normal)
+        return normal
 
+    for key in tqdm(keys):
+        try:
+            qs, qe = engines[engine]
+            response = session.get(
+                qs
+                + key
+                + qe
+            )
+        except IOError:
+            print(f'Запрос {key} не выполнен!(Не удалось подключиться)')
         else:
-            for el in soup.findAll({'a': True}, class_='title'):
-                link = el['href']
-                if link.find('.ua/') == -1 and link.find('.uz/') == -1:
-                    title = el.text
-                    flag = False
-                    if titles:
-                        for elem in titles:
-                            if fuzz.token_sort_ratio(elem, title) >= 60:
-                                flag = True
-                    else:
-                        links.append(link)
-                        titles.append(title)
-                    if not flag:
-                        links.append(link)
-                        titles.append(title)
+            soup = BeautifulSoup(response.text, 'lxml')
 
-    return links, titles
+            if engine == 'yandex':
+                for el in soup.findAll({'a': True}, class_='mg-snippet__url'):
+                    link = el['href']
+                    if link.find('.ua/') == -1 and link.find('.uz/') == -1:
+                        tail = link[link.find('utm') - 1:]
+                        link = link.replace(tail, '')
+                        title = el.div.span.text
+                        flag = False
+                        if titles:
+                            for elem in titles:
+                                # if fuzz.token_sort_ratio(elem.lower(), title.lower()) >= 60:
+                                if fuzz.token_sort_ratio(normal_form_str(elem),
+                                                         normal_form_str(title)) >= 60:
+                                    flag = True
+                        else:
+                            links.append(link)
+                            titles.append(title)
+                            keys_for_table.append(key)
+                        if not flag:
+                            links.append(link)
+                            titles.append(title)
+                            keys_for_table.append(key)
+                            # print(title)
+
+            else:
+                for el in soup.findAll({'a': True}, class_='title'):
+                    link = el['href']
+                    if link.find('.ua/') == -1 and link.find('.uz/') == -1:
+                        title = el.text
+                        flag = False
+                        if titles:
+                            for elem in titles:
+                                # if fuzz.token_sort_ratio(elem.lower(), title.lower()) >= 60:
+                                if fuzz.token_sort_ratio(normal_form_str(elem),
+                                                         normal_form_str(title)) >= 60:
+                                    flag = True
+                        else:
+                            links.append(link)
+                            titles.append(title)
+                            keys_for_table.append(key)
+                        if not flag:
+                            links.append(link)
+                            titles.append(title)
+                            keys_for_table.append(key)
+
+    return links, titles, keys_for_table
+
+
+# def drop_by_titles(df):
+#     to_drop = []
+#     titles = df['Заголовок'].tolist()
+#     for row in tqdm(df.index):
+#         title = df.loc[row, 'Заголовок']
+#         for i, elem in enumerate(titles):
+#             print(elem, title)
+#             if fuzz.token_sort_ratio(elem, title) >= 60:
+#                 print(fuzz.token_sort_ratio(elem, title))
+#                 del titles[i]
+#                 to_drop.append(row)
+#                 break
+#     df.drop(to_drop, inplace=True)
+#     return df
 
 
 def text_parser(df, session):
-    links = df['Ссылки'].tolist()
+    parsed_links = df['Ссылки'].tolist()
     texts = []
-    if links:
-        for link in tqdm(links):
+    if parsed_links:
+        for link in tqdm(parsed_links):
             try:
                 response = session.get(link)
             except IOError:
