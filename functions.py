@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+import requests
 
 import pandas as pd
 from bs4 import BeautifulSoup
@@ -13,9 +14,11 @@ from config import *
 def connection_check(session):
     try:
         session.get('https://ya.ru/')
-    except IOError:
-        print('Проблемы с интернет подключением!')
+    except requests.exceptions.HTTPError as http_err:
+        print(f'Проблемы с интернет подключением: {http_err}')
         sys.exit()
+    except Exception as err:
+        print(f'Ошибка: {err}')
 
 
 def files_parse():
@@ -37,6 +40,8 @@ def files_parse():
     except IOError:
         print('Отсутствуют файлы с ключевыми словами\nНеобходимо использовать файлы формата .csv')
         sys.exit()
+    except Exception as err:
+        print(f'Ошибка: {err}')
 
 
 def read_keys(files):
@@ -66,8 +71,10 @@ def links_parser(session, keys, engine, morph):
                 + key
                 + qe
             )
-        except IOError:
-            print(f'Запрос {key} не выполнен!(Не удалось подключиться)')
+        except requests.exceptions.HTTPError as http_err:
+            print(f'Запрос {key} не выполнен! Ошибка: {http_err}')
+        except Exception as err:
+            print(f'Ошибка: {err}')
         else:
             soup = BeautifulSoup(response.text, 'lxml')
 
@@ -142,8 +149,11 @@ def text_parser(df, session):
         for link in tqdm(parsed_links):
             try:
                 response = session.get(link)
-            except IOError:
-                texts.append('Не удалось выгрузить данные!!!')
+            except requests.exceptions.HTTPError as http_err:
+                print(f'Проблемы с интернет подключением: {http_err}')
+                texts.append(f'Не удалось выгрузить данные!!! Проблемы с интернет подключением: {http_err}')
+            except Exception as err:
+                print(f'Ошибка: {err}')
             else:
                 response.encoding = 'utf8'
                 soup = BeautifulSoup(response.text, 'lxml')
@@ -186,3 +196,13 @@ def clear_texts(df):
     df.drop(to_drop, inplace=True)
 
     return df
+
+# new_keys = ['аудит', 'аудитор', 'аудиторский']
+# morph = pymorphy2.MorphAnalyzer()
+# keys = []
+# for i in new_keys:
+#     words = morph.parse(i)[0].lexeme
+#     for j in words:
+#         keys.append(j[0])
+# keys = list(set(keys))
+# print(keys)
