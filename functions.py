@@ -127,8 +127,8 @@ def links_parser(session, keys, engine, morph):
 
 
 # def drop_by_titles(df):
-#     to_drop = []
-#     titles = df['Заголовок'].tolist()
+#     to_drop = set()
+#     titles_to_compare = df['Заголовок'].tolist()
 #     for row in tqdm(df.index):
 #         title = df.loc[row, 'Заголовок']
 #         for i, elem in enumerate(titles):
@@ -136,7 +136,7 @@ def links_parser(session, keys, engine, morph):
 #             if fuzz.token_sort_ratio(elem, title) >= 60:
 #                 print(fuzz.token_sort_ratio(elem, title))
 #                 del titles[i]
-#                 to_drop.append(row)
+#                 to_drop.add(row)
 #                 break
 #     df.drop(to_drop, inplace=True)
 #     return df
@@ -154,6 +154,7 @@ def text_parser(df, session):
                 texts.append(f'Не удалось выгрузить данные!!! Проблемы с интернет подключением: {http_err}')
             except Exception as err:
                 print(f'Ошибка: {err}')
+                texts.append(f'Не удалось выгрузить данные!!! Ошибка: {err}')
             else:
                 response.encoding = 'utf8'
                 soup = BeautifulSoup(response.text, 'lxml')
@@ -184,15 +185,15 @@ def text_parser(df, session):
 def clear_texts(df):
     for row in df.index:
         df.loc[row, 'Тексты'] = re.sub(r'\n{2,}', r'\n', df.loc[row, 'Тексты'])
-    to_drop = []
+    to_drop = set()
     for row in df.index:
         text = df.loc[row, 'Тексты']
         if pd.notna(text) and text != 'Не удалось выгрузить данные!!!':
             key = df.loc[row, 'Ключевое слово']
             if not re.search(rf'\b{key.lower()}\b', text.lower()):
-                to_drop.append(row)
+                to_drop.add(row)
         else:
-            to_drop.append(row)
+            to_drop.add(row)
     df.drop(to_drop, inplace=True)
 
     return df
