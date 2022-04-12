@@ -130,3 +130,4 @@ dmypy.json
 data/
 output/
 .idea
+/history_file.csv
