@@ -10,8 +10,7 @@ result = links_parser(session, keys)
 
 result.drop_duplicates(['Ссылки'], inplace=True, ignore_index=True)
 result['Тексты'] = text_parser(result, session)
-# result.to_excel(output_dir + '/'
-#                 + 'results_no_clear_text_.xlsx',
+# result.to_excel(f'{output_dir}/result_no_clear_text_{launch_time}.xlsx',
 #                 index=False)
 
 result = clear_texts(result)
