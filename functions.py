@@ -77,7 +77,7 @@ def links_parser(session, keys):
             history_df.to_csv('history_file.csv', sep=';', index=False)
         else:
             to_drop = set()
-            history_file = pd.read_csv('history_file.csv', sep=';')
+            history_file = pd.read_csv('history_file.csv', sep=';', parse_dates=['Дата выгрузки'])
             old_dates = set()
             for row in history_file.index:
                 if history_file.loc[row, 'Дата выгрузки'] + datetime.timedelta(30) <= datetime.datetime.today():
