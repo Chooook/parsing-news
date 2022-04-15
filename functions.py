@@ -53,18 +53,21 @@ def read_keys(files):
     for filename in files:
         key_words = pd.read_csv(input_dir + filename, header=None)[0].tolist()
         keys += key_words
+        keys = list(set([key.strip() for key in keys]))
     return keys
 
 
 def links_parser(session, keys):
     morph = pymorphy2.MorphAnalyzer()
+    stopwords = set(pd.read_csv('data/nltk/stopwords.csv', header=None)[0].to_list())
 
     def normal_form_str(not_normal):
         normal = []
-        not_normal = ''.join(re.findall(r'\w|\s', not_normal))
+        not_normal = re.sub(r'[^\w\s]', '', not_normal)
         for word in not_normal.split():
-            normal_word = morph.parse(word)[0].normal_form
-            normal.append(normal_word)
+            if word not in stopwords:
+                normal_word = morph.parse(word)[0].normal_form
+                normal.append(normal_word)
         normal = ' '.join(normal)
         return normal
 
@@ -77,10 +80,12 @@ def links_parser(session, keys):
             history_df.to_csv('history_file.csv', sep=';', index=False)
         else:
             to_drop = set()
-            history_file = pd.read_csv('history_file.csv', sep=';', parse_dates=['Дата выгрузки'])
+            history_file = pd.read_csv('history_file.csv', sep=';',
+                                       parse_dates=['Дата выгрузки']
+                                       )
             old_dates = set()
             for row in history_file.index:
-                if history_file.loc[row, 'Дата выгрузки'] + datetime.timedelta(30) <= datetime.datetime.today():
+                if history_file.loc[row, 'Дата выгрузки'] + datetime.timedelta(days=14) <= datetime.datetime.today():
                     old_dates.add(row)
             history_file.drop(old_dates, inplace=True)
             links_old = history_file['Ссылки']
@@ -103,6 +108,7 @@ def links_parser(session, keys):
         return df
 
     for engine in engines.__iter__():
+        # for key in keys:
         for key in tqdm(keys):
             try:
                 qs, qe = engines[engine]
@@ -120,16 +126,15 @@ def links_parser(session, keys):
                 soup = BeautifulSoup(response.text, 'lxml')
 
                 if engine == 'yandex':
+                    # print(key, len(soup.findAll({'a': True}, class_='mg-snippet__url')))
                     for el in soup.findAll({'a': True}, class_='mg-snippet__url'):
                         link = el['href']
-                        # if link.find('.ua/') == -1 and link.find('.uz/') == -1:
                         tail = link[link.find('utm') - 1:]
                         link = link.replace(tail, '')
                         title = el.div.span.text
                         flag = False
                         if titles:
                             for elem in titles:
-                                # if fuzz.token_sort_ratio(elem.lower(), title.lower()) >= 60:
                                 if fuzz.token_sort_ratio(normal_form_str(elem),
                                                          normal_form_str(title)) >= 60:
                                     flag = True
@@ -141,19 +146,17 @@ def links_parser(session, keys):
                             links.append(link)
                             titles.append(title)
                             keys_for_table.append(key)
-                            # print(title)
 
                 else:
+                    # print(key, len(soup.findAll({'a': True}, class_='title')))
                     for el in soup.findAll({'a': True}, class_='title'):
                         link = el['href']
-                        # if link.find('.ua/') == -1 and link.find('.uz/') == -1:
                         title = el.text
                         flag = False
                         if titles:
                             for elem in titles:
-                                # if fuzz.token_sort_ratio(elem.lower(), title.lower()) >= 60:
-                                if fuzz.token_sort_ratio(normal_form_str(elem),
-                                                         normal_form_str(title)) >= 60:
+                                if not flag and fuzz.token_sort_ratio(normal_form_str(elem),
+                                                                      normal_form_str(title)) >= 60:
                                     flag = True
                         else:
                             links.append(link)
@@ -164,10 +167,10 @@ def links_parser(session, keys):
                             titles.append(title)
                             keys_for_table.append(key)
     result = pd.DataFrame({
-         'Ключевое слово': keys_for_table,
-         'Ссылки': links,
-         'Заголовок': titles
-     })
+        'Ключевое слово': keys_for_table,
+        'Ссылки': links,
+        'Заголовок': titles
+    })
     result = history(result)
 
     return result
@@ -192,36 +195,21 @@ def links_parser(session, keys):
 
 
 def text_parser(df, session):
-
     def correct_text_gettext(bs):
         pretext = bs.get_text(separator='\n', strip=True).split('\n')
         corr_text = []
         for par in pretext:
-            if par.strip() and len(par.split(' ')) >= 2 and par.strip()[-1] in '!;?:,.;':
+            if (par.strip() and len(par.split(' ')) >= 2 and par.strip()[-1] in '!;?:,.;') \
+                    or re.search(rf'\b{key.lower()}\b', par.lower()):
                 corr_text.append(par)
         corr_text = '\n'.join(corr_text)
         return corr_text
 
-    # def correct_text_findall(bs):
-    #     pretext = []
-    #     for div in bs.findAll({'div': True}):
-    #         if div.find({'p': True}):
-    #             for el in div.findAll({'p': True,
-    #                                    'li': True,
-    #                                    }):
-    #                 while el.text not in pretext:
-    #                     pretext.append(el.text)
-    #     corr_text = []
-    #     for par in pretext:
-    #         if par.strip() and len(par.split(' ')) >= 2 and par.strip()[-1] in '!;?:,.;':
-    #             corr_text.append(par)
-    #     corr_text = '\n'.join(corr_text)
-    #     return corr_text
-
     parsed_links = df['Ссылки'].tolist()
+    link_keys = df['Ключевое слово'].tolist()
     texts = []
     if parsed_links:
-        for link in tqdm(parsed_links):
+        for link, key in tqdm(list(zip(parsed_links, link_keys))):
             try:
                 response = session.get(link, timeout=15)
             except IOError as http_err:
@@ -232,7 +220,6 @@ def text_parser(df, session):
                 texts.append(f'Не удалось выгрузить данные!!! Ошибка: {err}')
             else:
                 soup = BeautifulSoup(response.text, 'lxml')
-                # text = correct_text_findall(soup)
                 text = correct_text_gettext(soup)
                 if re.search(r'[А-Яа-я]', text):
                     texts.append(text)
@@ -240,21 +227,18 @@ def text_parser(df, session):
                     charset = chardet.detect(response.content).get('encoding')
                     response.encoding = charset
                     soup = BeautifulSoup(response.text, 'lxml')
-                    # text = correct_text_findall(soup)
                     text = correct_text_gettext(soup)
                     if re.search(r'[А-Яа-я]', text):
                         texts.append(text)
                     else:
                         response.encoding = 'utf8'
                         soup = BeautifulSoup(response.text, 'lxml')
-                        # text = correct_text_findall(soup)
                         text = correct_text_gettext(soup)
                         if re.search(r'[А-Яа-я]', text):
                             texts.append(text)
                         else:
                             response.encoding = 'windows-1251'
                             soup = BeautifulSoup(response.text, 'lxml')
-                            # text = correct_text_findall(soup)
                             text = correct_text_gettext(soup)
                             if re.search(r'[А-Яа-я]', text):
                                 texts.append(text)
@@ -272,6 +256,12 @@ def clear_texts(df):
         df.loc[row, 'Тексты'] = re.sub(r'\n{2,}', r'\n', df.loc[row, 'Тексты'])
     to_drop = set()
     for row in df.index:
+        link = df.loc[row, 'Ссылки']
+        if re.search('schroders', link):
+            to_drop.add(row)
+    df.drop(to_drop, inplace=True)
+    to_drop = set()
+    for row in df.index:
         text = df.loc[row, 'Тексты']
         if text == 'В тексте отсутствуют русские символы!' or \
                 re.search(r'Не удалось выгрузить данные!!!', text):
@@ -286,9 +276,11 @@ def clear_texts(df):
     to_drop = set()
     for row in df.index:
         text = df.loc[row, 'Тексты']
+        title = df.loc[row, 'Заголовок']
         if pd.notna(text):
             key = df.loc[row, 'Ключевое слово']
-            if not re.search(rf'\b{key.lower()}\b', text.lower()):
+            if not re.search(rf'\b{key.lower()}\b', text.lower()) \
+                    and not re.search(rf'\b{key.lower()}\b', title.lower()):
                 to_drop.add(row)
         else:
             to_drop.add(row)
@@ -296,6 +288,32 @@ def clear_texts(df):
 
     return df
 
+
+# def extra_check(df):
+#     ml_words = set(pd.read_csv('data/ml/ml words.csv', header=None)[0].to_list())
+#     to_drop = set()
+#     for row in df.index:
+#         text = df.loc[row, 'Тексты']
+#         for word in ml_words:
+#             if re.search(word, text):
+#                 break
+#             to_drop.add(row)
+#
+#     return df
+
+
+def check(s, words):
+    result = []
+    for word in words:
+        if re.search(word, s):
+            result.append(word)
+    if not result:
+        result = 'ЛОЖЬ'
+    else:
+        result = ', '.join(result)
+    return result
+
+# lexemes:
 # new_keys = ['аудит', 'аудитор', 'аудиторский']
 # morph = pymorphy2.MorphAnalyzer()
 # keys = []
