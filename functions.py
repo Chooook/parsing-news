@@ -24,43 +24,52 @@ def connection_check(session):
         sys.exit()
 
 
-def files_parse():
-    try:
-        if os.path.exists(input_dir):
-            files = []
-            for _, _, data in os.walk(input_dir):
-                for file in reversed(data):
-                    if re.search(r'.csv', file):
-                        files.append(file)
-            if not files:
+def read_keys():
+    def files_parse():
+        try:
+            if os.path.exists(input_dir):
+                files = []
+                for _, _, data in os.walk(input_dir):
+                    for file in reversed(data):
+                        if re.search(r'.csv', file):
+                            files.append(file)
+                if not files:
+                    raise IOError
+                if not os.path.exists(output_dir):
+                    os.makedirs(output_dir)
+                return files
+            else:
+                os.makedirs(input_dir)
                 raise IOError
-            if not os.path.exists(output_dir):
-                os.makedirs(output_dir)
-            return files
-        else:
-            os.makedirs(input_dir)
-            raise IOError
-    except IOError:
-        print('Отсутствуют файлы с ключевыми словами\n'
-              'Необходимо использовать файлы формата .csv со словами в одну колонку')
-        sys.exit()
-    except Exception as err:
-        print(f'Ошибка: {err}')
-        sys.exit()
-
-
-def read_keys(files):
+        except IOError:
+            print('Отсутствуют файлы с ключевыми словами\n'
+                  'Необходимо использовать файлы формата .csv со словами в одну колонку')
+            sys.exit()
+        except Exception as err:
+            print(f'Ошибка: {err}')
+            sys.exit()
     keys = []
-    for filename in files:
-        key_words = pd.read_csv(input_dir + filename, header=None)[0].tolist()
-        keys += key_words
-        keys = list(set([key.strip() for key in keys]))
+    for filename in files_parse():
+        try:
+            key_words = pd.read_csv(input_dir + filename, header=None)[0].tolist()
+        except pd.errors.EmptyDataError:
+            print(f'Файл {filename} пуст!')
+            continue
+        else:
+            keys += key_words
+            keys = list(set([key.strip() for key in keys]))
+    if len(keys) != 0:
+        print(f'Обнаружено ключевых слов: {len(keys)}')
+    else:
+        print('Ключевых слов не обнаружено')
+        sys.exit()
     return keys
 
 
 def links_parser(session, keys):
     morph = pymorphy2.MorphAnalyzer()
-    stopwords = set(pd.read_csv('data/nltk/stopwords.csv', header=None)[0].to_list())
+    # try:
+    stopwords = set(pd.read_csv('data/stopwords/nltk stopwords.csv', header=None)[0].to_list())
 
     def normal_form_str(not_normal):
         normal = []
