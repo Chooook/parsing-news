@@ -41,7 +41,8 @@ def files_parse():
             os.makedirs(input_dir)
             raise IOError
     except IOError:
-        print('Отсутствуют файлы с ключевыми словами\nНеобходимо использовать файлы формата .csv')
+        print('Отсутствуют файлы с ключевыми словами\n'
+              'Необходимо использовать файлы формата .csv со словами в одну колонку')
         sys.exit()
     except Exception as err:
         print(f'Ошибка: {err}')

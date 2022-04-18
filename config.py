@@ -3,7 +3,7 @@ from time import time
 
 # input_dir = 'data/аналитики/'
 # input_dir = 'data/test/'
-input_dir = 'data/pymorphy2/'
+input_dir = 'data/key words/'
 
 output_dir = 'output/'
 
