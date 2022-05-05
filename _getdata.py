@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+from pathlib import Path
 
 import pandas as pd
 
@@ -15,7 +16,8 @@ class GetData:
                 os.makedirs(directory)
 
     @staticmethod
-    def search_files(directory) -> set[str]:
+    def search_files(directory: str) -> set[str]:
+        # path = Path(directory)
         try:
             files = set(next(os.walk(directory))[2])
             try:
@@ -29,7 +31,7 @@ class GetData:
             sys.exit()
 
     @staticmethod
-    def read_keys():
+    def keys() -> set[str]:
         directory = Dirs.input_dir
         files = GetData.search_files(directory)
         if not files:
@@ -40,22 +42,19 @@ class GetData:
             if not filename.endswith('.csv'):
                 print(f'Файл "{directory + filename}" не подходит.\n'
                       'Необходимо использовать файлы формата .csv')
+            elif Path(directory + filename).stat().st_size == 0:
+                print(f'Файл "{filename}" пуст!\n'
+                      'Ключевые слова необходимо '
+                      'расположить в первой колонке.')
             else:
-                try:
-                    file_keys = set()
-                    # os.path.join(directory, filename)
-                    with open(directory + filename) as file:
-                        for row in file:
-                            file_keys.add(re.sub(r'\n\r', '', row).strip())
-                    file.close()
-                    keys = keys.union(file_keys)
-                # TOD to fix
-                except pd.errors.EmptyDataError:
-                    print(f'Файл "{filename}" пуст!\n'
-                          'Ключевые слова необходимо '
-                          'расположить в первой колонке.')
+                file_keys = set()
+                # os.path.join(directory, filename)
+                with open(directory + filename) as file:
+                    for row in file:
+                        file_keys.add(re.sub(r'\n\r', '', row).strip().lower())
+                file.close()
+                keys = keys.union(file_keys)
 
-        keys = set([key.lower() for key in keys])
         if not keys:
             print('Ключевых слов не обнаружено.\n'
                   'Необходимо использовать файлы формата '
@@ -66,7 +65,7 @@ class GetData:
             return keys
 
     @staticmethod
-    def read_stopwords():
+    def stopwords() -> set[str]:
         directory = Dirs.stopwords_dir
         stopwords = set()
         files = GetData.search_files(directory)

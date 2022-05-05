@@ -1,5 +1,32 @@
+import requests
+import sys
 from datetime import datetime, timedelta
 from time import time
+
+
+class Connection:
+    @staticmethod
+    def session_create() -> requests.sessions.Session:
+        """
+        :return: 
+        """
+        s = requests.Session()
+        Connection.check_connection(s)
+        return s
+
+    @staticmethod
+    def check_connection(session: requests.sessions.Session):
+        try:
+            session.get('https://yandex.ru/', timeout=25)
+
+        except IOError:
+            print(f'Проблемы с интернет подключением!')
+            sys.exit()
+
+        except Exception as err:
+            print(f'Ошибка:\n'
+                  f'{err}')
+            sys.exit()
 
 
 class Dirs:
@@ -7,9 +34,11 @@ class Dirs:
     output_dir = 'output/'
     stopwords_dir = 'data/stopwords/'
     history_dir = 'history/'
-    old_history_dir = 'history/old/'
-    items = (input_dir, output_dir, stopwords_dir,
-             history_dir, old_history_dir)
+    # old_history_dir = 'history/old/'
+    items = (input_dir, output_dir,
+             stopwords_dir, history_dir,
+             # old_history_dir
+             )
 
 
 class Times:
@@ -34,7 +63,7 @@ class Engine:
             query_end_day: str,
             query_end_week: str,
             article_class: str
-    ):
+            ):
         self.registry.append(self)
         self.name = name
         self.query_start = query_start
@@ -68,5 +97,6 @@ bing = (
 
     'title'
     )
+
 Ya = Engine(*ya)
 Bing = Engine(*bing)
