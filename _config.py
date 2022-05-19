@@ -80,7 +80,6 @@ class Ya(Engine):
         title = el.div.span.text
         return link, title
 
-    'https://www.bing.com/news/search?q=',
 
 class Bing(Engine):
     name = 'Bing News'
