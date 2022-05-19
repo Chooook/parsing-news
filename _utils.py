@@ -3,7 +3,6 @@ import re
 import sys
 from pathlib import Path
 
-import pandas as pd
 import pymorphy2
 import requests
 
@@ -49,7 +48,7 @@ class Utils:
         """Return lowercase stripped rows
         contained in .csv files from 'path'
 
-        :param path:
+        :param path: directory to pass to Utils.search_files()
         :type path: str
 
         :rtype: set[str]
@@ -87,30 +86,13 @@ class Utils:
         :return: set of keywords
         """
         path = Paths.keys_path
-        files = Utils.search_files(path)
-        if not files:
-            print(f'Папка с ключевыми словами, "{path}", пуста!')
-            sys.exit()
+        rows = Utils.__read_files(path)
         keys = set()
-        for filename in files:
-            if not filename.endswith('.csv'):
-                print(f'Файл "{path + filename}" не подходит.\n'
-                      'Необходимо использовать файлы формата .csv')
-            elif Path(path + filename).stat().st_size == 0:
-                print(f'Файл "{filename}" пуст!\n'
-                      'Ключевые слова необходимо '
-                      'расположить в первой колонке.')
-            else:
-                file_keys = set()
-                # os.path.join(directory, filename)
-                with open(path + filename, encoding='utf-8-sig') as file:
-                    for row in file:
-                        key = ''.join(re.findall(r'[\w+ \"\']', row))
-                        key = re.sub(r' +', ' ', key)
-                        if key:
-                            file_keys.add(key.strip().lower())
-                file.close()
-                keys = keys.union(file_keys)
+        for row in rows:
+            key = ''.join(re.findall(r'[\w+ \"\']', row))
+            key = re.sub(r' +', ' ', key)
+            if key:
+                keys.add(key)
 
         if not keys:
             print('Ключевых слов не обнаружено.\n'
@@ -132,41 +114,23 @@ class Utils:
         :rtype: set[str]
         :return: set of stopwords
         """
-        directory = Paths.stopwords_path
-        stopwords = set()
-        files = Utils.search_files(directory)
-        if not files:
-            print(f'Папка со стоп-словами, "{directory}", пуста!\n'
-                  'Похожие заголовки будут определяться менее точно.')
-            return stopwords
-        for filename in files:
-            if filename.endswith('.csv'):
-                try:
-                    stopwords = stopwords.union(
-                        set(pd.read_csv(
-                            directory + filename,
-                            header=None
-                        )[0].tolist()))
-                except pd.errors.EmptyDataError:
-                    print(f'Файл "{filename}" пуст!\n'
-                          'Стоп-слова необходимо расположить '
-                          'в первой колонке.')
-                    continue
-            else:
-                print(f'Файл "{directory + filename}" не подходит.\n'
-                      'Необходимо использовать файлы формата .csv')
+        path = Paths.stopwords_path
+        stopwords = Utils.__read_files(path)
 
         if not stopwords:
-            print(
-                'Стоп-слов не обнаружено! '
-                'Необходимо использовать файлы формата '
-                '.csv со словами в первой колонке.\n'
-                'Похожие заголовки будут определяться менее точно.')
+            print('Стоп-слов не обнаружено! '
+                  'Необходимо использовать файлы формата '
+                  '.csv со словами в первой колонке.\n'
+                  'Похожие заголовки будут определяться менее точно.')
         return stopwords
 
     @staticmethod
     def create_session() -> requests.sessions.Session:
-        """Return requests.Session() object and check connection."""
+        """Return requests.Session() object and check connection.
+
+        :rtype: requests.sessions.Session
+        :return: Session object
+        """
         s = requests.Session()
         Utils.check_connection(s)
         return s
@@ -233,11 +197,3 @@ class Utils:
                 new_words.add('"' + form[0] + '"')
 
         return new_words
-
-# class Article:
-#     def __init__(self, name, key, link, title):
-#         self.name = name
-#         self.key = key
-#         self.link = link
-#         self.title = title
-#         self.text = None
