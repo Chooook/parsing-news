@@ -115,7 +115,13 @@ class Utils:
         :return: set of stopwords
         """
         path = Paths.stopwords_path
-        stopwords = Utils.__read_files(path)
+        rows = Utils.__read_files(path)
+        stopwords = set()
+        for row in rows:
+            stopword = ''.join(re.findall(r'[\w+ ]', row))
+            stopword = re.sub(r' +', ' ', stopword)
+            if stopword:
+                stopwords.add(stopword)
 
         if not stopwords:
             print('Стоп-слов не обнаружено! '
