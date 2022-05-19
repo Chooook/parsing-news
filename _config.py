@@ -1,102 +1,102 @@
-import requests
-import sys
 from datetime import datetime, timedelta
 from time import time
 
 
-class Connection:
-    @staticmethod
-    def session_create() -> requests.sessions.Session:
-        """
-        :return: 
-        """
-        s = requests.Session()
-        Connection.check_connection(s)
-        return s
+class Paths:
+    """Data-container with paths."""
+    keys_path = 'data/key words/5keys/'
+    # keys_path = 'data/key words/yake/'
+    # keys_path = 'data/key words/textrank/'
+    # keys_path = 'data/key words/lda/'
+    keys_dir_name = keys_path.split('/')[-2]
+    output_path = 'output/'
+    stopwords_path = 'data/stopwords/'
+    history_path = f'history/{keys_dir_name}/'
+    old_history_path = 'history/old/'
 
-    @staticmethod
-    def check_connection(session: requests.sessions.Session):
-        try:
-            session.get('https://yandex.ru/', timeout=25)
-
-        except IOError:
-            print(f'Проблемы с интернет подключением!')
-            sys.exit()
-
-        except Exception as err:
-            print(f'Ошибка:\n'
-                  f'{err}')
-            sys.exit()
-
-
-class Dirs:
-    input_dir = 'data/key words/'
-    output_dir = 'output/'
-    stopwords_dir = 'data/stopwords/'
-    history_dir = 'history/'
-    # old_history_dir = 'history/old/'
-    items = (input_dir, output_dir,
-             stopwords_dir, history_dir,
-             # old_history_dir
+    # список путей для автоматического создания папок при их отсутствии
+    items = (keys_path, output_path, stopwords_path,
+             history_path, old_history_path
              )
 
 
 class Times:
+    """Data-container with time variables."""
     today = datetime.today()
     today_str = today.strftime('%Y%m%d')
-    ytd_str = (today - timedelta(days=1)).strftime('%Y%m%d')
-    week_str = (today - timedelta(days=6)).strftime('%Y%m%d')
-    launch_time = datetime.today()
-    launch_time_str = launch_time.strftime('%Y.%m.%d %H-%M-%S')
+    launch_time_str = today.strftime('%Y.%m.%d %H-%M-%S')
+    yesterday_str = (today - timedelta(days=1)).strftime('%Y%m%d')
+    week_ago_str = (today - timedelta(days=6)).strftime('%Y%m%d')
     unix_now_str = str(int(time())) + '000'
     unix_week_str = str((int(time()) - 86400 * 6)) + '000'
-    history_timedelta = timedelta(days=14)
+
+    # за сколько дней будет использоваться история:
+    history_delta = timedelta(days=14)
+
+    # насколько старая история будет переноситься в old_history:
+    replace_delta = timedelta(days=90)
 
 
+# TODO: переменные класса через __init__()???
 class Engine:
-    registry = []
+    """Search-engine parent-class."""
+    name = ''  # наименование поисковика
+    query_start = ''  # начало url поискового запроса
+    query_end_day = ''  # окончание url поискового запроса за день
+    query_end_week = ''  # окончание url поискового запроса за неделю
+    article_class = ''  # html-class элемента со ссылкой и заголовком
 
-    def __init__(
-            self,
-            name: str,
-            query_start: str,
-            query_end_day: str,
-            query_end_week: str,
-            article_class: str
-            ):
-        self.registry.append(self)
-        self.name = name
-        self.query_start = query_start
-        self.query_end_day = query_end_day
-        self.query_end_week = query_end_week
-        self.article_class = article_class
+    def get_article(self, el):
+        """Load link and title.
+
+        :param el: element found by soup.findAll by 'article_class'
+        :type el: bs4.element.Tag
+        """
+        pass
 
 
-ya = (
-    'Yandex News',
+class Ya(Engine):
+    name = 'Yandex News'
+    query_start = 'https://newssearch.yandex.ru/news/search?text='
+    query_end_day = f'+date%3A{Times.yesterday_str}&flat=1&sortby=date' \
+                    f'&filter_date={Times.unix_now_str}'
+    query_end_week = f'+date%3A{Times.week_ago_str}..{Times.today_str}' \
+                     '&flat=1&sortby=date&filter_date=' \
+                     f'{Times.unix_week_str}%2C{Times.unix_now_str}'
+    article_class = 'mg-snippet__url'
 
-    'https://newssearch.yandex.ru/news/search?text=',
+    def get_article(self, el) -> tuple[str, str]:
+        """Load link and title, using Yandex News configuration.
 
-    f'+date%3A{Times.ytd_str}&flat=1&sortby=date'
-    f'&filter_date={Times.unix_now_str}',
+        :param el: element found by soup.findAll by Ya.article_class
+        :type el: bs4.element.Tag
 
-    f'+date%3A{Times.week_str}..{Times.today_str}'
-    f'&flat=1&sortby=date&filter_date={Times.unix_week_str}'
-    f'%2C{Times.unix_now_str}',
+        :rtype: tuple[str, str]
+        :return: link and title of article
+        """
+        link = el['href']
+        tail = link[link.find('utm') - 1:]
+        link = link.replace(tail, '')
+        title = el.div.span.text
+        return link, title
 
-    'mg-snippet__url'
-    )
-bing = (
-    'Bing News',
 
-    'https://www.bing.com/news/search?q=',
+class Bing(Engine):
+    name = 'Bing News'
+    query_start = 'https://www.bing.com/news/search?q='
+    query_end_day = '+language%3aru&qft=interval%3d"7"&form=PTFTNR&cc=ru'
+    query_end_week = '+language%3aru&qft=interval%3d"8"&form=PTFTNR&cc=ru'
+    article_class = 'title'
 
-    '+language%3aru&qft=interval%3d"7"&form=PTFTNR&cc=ru',
+    def get_article(self, el) -> tuple[str, str]:
+        """Load link and title, using Bing News configuration.
 
-    '+language%3aru&qft=interval%3d"8"&form=PTFTNR&cc=ru',
+        :param el: element found by soup.findAll by Bing.article_class
+        :type el: bs4.element.Tag
 
-    'title'
-    )
-
-Ya = Engine(*ya)
-Bing = Engine(*bing)
+        :rtype: tuple[str, str]
+        :return: link and title of article
+        """
+        link = el['href']
+        title = el.text
+        return link, title
