@@ -176,7 +176,8 @@ class Utils:
         if not cls.__stopwords:
             cls.__stopwords = Utils.__read_stopwords()
         normal = []
-        not_normal = re.sub(r'[^\w\s]', '', not_normal)
+        not_normal = re.sub(r'[^\w\s]', ' ', not_normal)
+        not_normal = re.sub(r' +', ' ', not_normal).strip()
         for word in not_normal.split():
             if word not in cls.__stopwords:
                 normal_word = cls.__morph.parse(word)[0].normal_form
