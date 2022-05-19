@@ -143,11 +143,14 @@ class Utils:
         :type session: requests.sessions.Session
         """
         try:
-            session.get('https://yandex.ru/', timeout=25)
+            session.get('https://yandex.ru/', timeout=15)
 
         except IOError:
-            print(f'Проблемы с интернет подключением!')
-            sys.exit()
+            try:
+                session.get('https://www.google.com/', timeout=15)
+            except IOError:
+                print(f'Проблемы с интернет подключением!')
+                sys.exit()
 
         except Exception as err:
             print(f'Ошибка:\n'
