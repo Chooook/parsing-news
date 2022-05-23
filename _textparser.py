@@ -3,71 +3,94 @@ import sys
 
 import chardet
 import pandas as pd
-import pycld2 as cld2
 from bs4 import BeautifulSoup
 from tqdm import tqdm
-from _config import Connection
+
+from _utils import Utils
 
 
 class TextParser:
-    charsets = {'utf-8', 'windows-1251', 'iso-8859-5'}
-    session = Connection.session_create()
+    __charsets = {'utf-8', 'windows-1251', 'iso-8859-5'}
+    __session = None
+    __df = pd.DataFrame()
 
     @classmethod
-    def parser(cls, df):
-
-        if df['Ссылка'].empty:
+    def parser(cls, df: pd.DataFrame):
+        cls.__session = Utils.create_session()
+        cls.__df = df
+        if cls.__df['Ссылка'].empty:
             print('Список ссылок пуст!')
             sys.exit()
         texts = []
         for key, link in tqdm(list(zip(
-                df['Ключевое слово'].values,
-                df['Ссылка'].values
-        )),
+                cls.__df['Ключевое слово'].values,
+                cls.__df['Ссылка'].values
+                )),
                 desc='Выгрузка текстов'
-        ):
+                ):
             texts.append(TextParser.__get_text(link))
-        cls.session.close()
+        cls.__session.close()
 
-        df['Текст'] = texts
-        df = TextParser.__replace_rows(df)
+        cls.__df['Текст'] = texts
 
-        return df
+        for row, text, key in zip(cls.__df.index,
+                                  cls.__df['Текст'].values,
+                                  cls.__df['Ключевое слово'].values):
+            cls.__df.loc[row, 'Текст'] = TextParser.__correct_text(text, key)
+
+        return cls.__df
 
     @classmethod
     def __get_text(cls, link):
+        """Return text for link if possible, or str with error message.
+
+        :param link: article link
+        :type link: str
+
+        :rtype: str
+        :return: text from article webpage or error str
+        """
         try:
-            response = cls.session.get(link, timeout=15)
+            response = cls.__session.get(link, timeout=15)
         except IOError as http_err:
             print(f'Не удалось выгрузить данные с {link}!!!')
-            Connection.check_connection(cls.session)
+            Utils.check_connection(cls.__session)
             return str(f'Не удалось выгрузить данные!!!'
                        f' Проблемы с подключением к ресурсу: {http_err}')
         except Exception as err:
             print(f'Не удалось выгрузить данные с {link}!!!')
-            Connection.check_connection(cls.session)
+            Utils.check_connection(cls.__session)
             return f'Не удалось выгрузить данные!!! Ошибка: {err}'
         else:
             soup = BeautifulSoup(response.text, 'lxml')
             text = soup.get_text(separator='\n', strip=True)
             if re.search(r'[А-Яа-я]', text):
-                # text = TextParser.__correct_text(soup, key)
                 return text
             else:
                 chardet_set = set()
                 chardet_set.add(chardet.detect
                                 (response.content).get('encoding'))
-                for charset in cls.charsets.union(chardet_set):
+                for charset in cls.__charsets.union(chardet_set):
                     response.encoding = charset
                     soup = BeautifulSoup(response.text, 'lxml')
                     text = soup.get_text(separator='\n', strip=True)
                     if re.search(r'[А-Яа-я]', text):
-                        # text = TextParser.__correct_text(soup, key)
                         return text
             return 'В тексте отсутствуют русские символы!'
 
+# TODO: прикрутить отсечение по повторяющимся строкам
     @staticmethod
     def __correct_text(text, key):
+        """Return more readable article text.
+
+        :param text: raw article text loaded
+        :type text:str
+        :param key: keyword, used to find this article
+        :type key: str
+
+        :rtype: str
+        :return: corrected article text
+        """
         pretext = text.split('\n')
         corr_text = []
         key_clear = re.sub(r'"', '', key)
@@ -81,82 +104,3 @@ class TextParser:
         corr_text = re.sub(r'\n{2,}', r'\n', corr_text)
 
         return corr_text
-
-    @staticmethod
-    def __drop_rows(df):
-
-        to_drop = []
-        for row, link in zip(df.index, df['Ссылка'].values):
-            if re.search('schroders', link):
-                to_drop.append(row)
-        df.drop(to_drop, inplace=True)
-
-        to_drop = []
-        for row, text, title, key in zip(
-                df.index,
-                df['Текст'].values,
-                df['Заголовок'].values,
-                df['Ключевое слово'].values
-        ):
-            if pd.notna(text):
-                key_clear = re.sub(r'"', '', key)
-                if (not re.search(rf'\b{key_clear}\b', text.lower()) and
-                        not re.search(rf'\b{key_clear}\b', title.lower())):
-                    to_drop.append(row)
-            else:
-                to_drop.append(row)
-        df.drop(to_drop, inplace=True)
-
-        to_drop = []
-        for row, text in zip(df.index, df['Текст'].values):
-            if cld2.detect(text)[2][0][0] != 'RUSSIAN':
-                to_drop.append(row)
-        df.drop(to_drop, inplace=True)
-
-        return df
-
-    @staticmethod
-    def __replace_rows(df):
-        df_ending = pd.DataFrame()
-
-        to_end = []
-        for row, text in zip(df.index, df['Текст'].values):
-            if (text == 'В тексте отсутствуют русские символы!' or
-                    re.search(r'Не удалось выгрузить данные!!!', text)):
-                to_end.append(row)
-        df_ending = pd.concat([df_ending, df.loc[to_end]], ignore_index=True)
-        df.drop(to_end, inplace=True)
-
-        df = TextParser.__drop_rows(df)
-
-        for row, text, key in zip(df.index,
-                                  df['Текст'].values,
-                                  df['Ключевое слово'].values):
-            df.loc[row, 'Текст'] = TextParser.__correct_text(text, key)
-
-        df = pd.concat([df, df_ending], ignore_index=True)
-
-        return df
-
-# class Article:
-#     def __init__(self, name, key, link, title):
-#         self.name = name
-#         self.key = key
-#         self.link = link
-#         self.title = title
-#         self.text = None
-
-# import functools
-# greet = functools.partial(greet, 'привет')
-# greet('красавчик')
-
-# lexemes:
-# new_keys = ['аудит', 'аудитор', 'аудиторский']
-# morph = pymorphy2.MorphAnalyzer()
-# keys = []
-# for i in new_keys:
-#     words = morph.parse(i)[0].lexeme
-#     for j in words:
-#         keys.append(j[0])
-# keys = list(set(keys))
-# print(keys)
