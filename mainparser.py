@@ -2,30 +2,31 @@ import re
 import time
 
 import pandas as pd
-import pymorphy2
+import pycld2 as cld
 from bs4 import BeautifulSoup
 from rapidfuzz import fuzz
 from tqdm import tqdm
 
-from _config import Connection, Dirs, Times, Engine, Bing, Ya
-from _getdata import GetData
+from _config import Paths, Engine, Times
 from _history import History
 from _textparser import TextParser
+from _utils import Utils
 
 
 class MainParser:
-    __session = Connection.session_create()
-    __morph = pymorphy2.MorphAnalyzer()
-    __keys = GetData.keys()
-    __stopwords = GetData.stopwords()
+    __session = None
+    __keys = None
+    __df = pd.DataFrame()
 
     @classmethod
     def get_articles(cls):
-        GetData.makedirs()
+        Utils.makedirs()
+        cls.__session = Utils.create_session()
+        cls.__keys = Utils.read_keys()
 
         keys_for_table, links, titles = [], [], []
 
-        for engine in Engine.registry:
+        for engine in Engine.__subclasses__():
             qs = engine.query_start
             qe = engine.query_end_day
             art_cls = engine.article_class
@@ -33,108 +34,153 @@ class MainParser:
                             desc=f'Выгрузка ссылок из {engine.name}'
                             ):
                 query = qs + key + qe
-                k, l, t = MainParser.__links_and_titles(
-                    key,
-                    engine,
-                    query,
-                    art_cls
-                    )
+                k, l, t = MainParser.__links_and_titles(key, query,
+                                                        art_cls, engine)
                 keys_for_table += k
                 links += l
                 titles += t
 
         cls.__session.close()
 
-        result = pd.DataFrame({
+        cls.__df = pd.DataFrame({
             'Ключевое слово': keys_for_table,
             'Заголовок': titles,
             'Ссылка': links
         })
-        result.drop_duplicates(['Ссылка'], inplace=True, ignore_index=True)
-        result, history_df = History.check(result,
-                                           MainParser.normal_str
-                                           )
-        time.sleep(0.1)
-        result.drop(MainParser.__titles_check(result), inplace=True)
-        result = TextParser.parser(result)
+        cls.__df.drop_duplicates(['Ссылка'], inplace=True, ignore_index=True)
+        cls.__df, history_df = History.check(cls.__df)
+        time.sleep(0.1)  # для корректного вывода tqdm в консоли PyCharm
 
-        result.to_excel(
-            Dirs.output_dir + f'result_{Times.launch_time_str}.xlsx',
-            index=False
-        )
-        history_df.to_csv(
-            Dirs.history_dir + f'history_{Times.launch_time_str}.csv',
-            sep=';',
-            index=False
-        )
+        cls.__df.drop(MainParser.__titles_check(), inplace=True)
+        __df = TextParser.parser(cls.__df)
 
-    @classmethod
-    def normal_str(cls, not_normal: str) -> str:
-        normal = []
-        not_normal = re.sub(r'[^\w\s]', '', not_normal)
-        for word in not_normal.split():
-            if word not in cls.__stopwords:
-                normal_word = cls.__morph.parse(word)[0].normal_form
-                normal.append(normal_word)
-        normal = ' '.join(normal)
-        return normal
+        df_ending, to_drop = MainParser.__replace_rows()
+        cls.__df.drop(to_drop, inplace=True)
+        MainParser.__drop_rows()
+        cls.__df = pd.concat([cls.__df, df_ending], ignore_index=True)
+
+        __df.to_excel(Paths.output_path +
+                      # f'result_{Paths.keys_dir_name}'
+                      f'result'
+                      f'_{Times.launch_time_str}.xlsx',
+                      index=False
+                      )
+        history_df.to_csv(Paths.history_path +
+                          f'history_{Times.launch_time_str}.csv',
+                          sep=';',
+                          index=False
+                          )
 
     @classmethod
-    def __links_and_titles(cls, k: str, eng, q: str, art_cls):
+    def __links_and_titles(cls, key: str, q: str, art_cls: str,
+                           eng: Engine.__subclasses__()
+                           ) -> tuple[list[str], list[str], list[str]]:
         try:
             response = cls.__session.get(q, timeout=10)
 
         except IOError as http_err:
-            print(f'Запрос "{k}" не выполнен! '
+            print(f'Запрос "{key}" не выполнен! '
                   f'Проблемы с интернет подключением:\n'
                   f'{http_err}')
-            Connection.check_connection(cls.__session)
+            Utils.check_connection(cls.__session)
             return [], [], []
 
-        # сделать перезапуск итерации при ошибке
-        # выполнения запроса и ограничение по количеству попыток
+        # TODO: сделать перезапуск итерации при ошибке выполнения запроса
+        #  и ограничение по количеству попыток
         except Exception as err:
-            print(f'Запрос "{k}" не выполнен! Ошибка:\n'
+            print(f'Запрос "{key}" не выполнен! Ошибка:\n'
                   f'{err}')
-            Connection.check_connection(cls.__session)
+            Utils.check_connection(cls.__session)
             return [], [], []
 
         else:
             keys_for_table, links, titles = [], [], []
             soup = BeautifulSoup(response.text, 'lxml')
             for el in soup.findAll({'a': True}, class_=art_cls):
-                link = el['href']
-                # изменить на match-case
-                if eng is Ya:
-                    tail = link[link.find('utm') - 1:]
-                    link = link.replace(tail, '')
-                    title = el.div.span.text
-                elif eng is Bing:
-                    title = el.text
-                else:
-                    # print(f'Нет параметров для поисковика {engine}')
-                    break
-                keys_for_table.append(k)
+                link, title = eng.get_article(eng, el)
+                keys_for_table.append(key)
                 links.append(link)
                 titles.append(title)
         return keys_for_table, links, titles
 
     @classmethod
-    def __titles_check(cls, df):
+    def __titles_check(cls) -> set[int]:
+        """Return set of rows, provided that their titles
+         is similar to at least one of other titles.
+
+        :rtype: set[int]
+        :return: set of rows to drop them from df
+        """
         to_drop = set()
-        titles_to_compare = df['Заголовок']
-        for index, title_one in tqdm(list(zip(df.index, titles_to_compare)),
-                                     desc='Очистка по похожим заголовкам'
-                                     ):
-            for i, title_two in enumerate(titles_to_compare):
-                if i not in to_drop and i != index:
-                    if fuzz.token_sort_ratio(
-                            MainParser.normal_str(title_one),
-                            MainParser.normal_str(title_two)) >= 60:
-                        to_drop.add(index)
+        cls.__df.reset_index(inplace=True, drop=True)
+        normal_titles = [Utils.normal_str(t) for t
+                         in cls.__df['Заголовок'].values]
+        for ind_one, title_one in enumerate(normal_titles):
+            for ind_two, title_two in enumerate(normal_titles):
+                if ind_two not in to_drop and ind_two != ind_one:
+                    if fuzz.token_sort_ratio(title_one, title_two) >= 60:
+                        to_drop.add(ind_one)
                         break
+
         return to_drop
+
+    @classmethod
+    def __replace_rows(cls):
+        """
+
+        :rtype:
+        :return:
+        """
+        df_ending = pd.DataFrame()
+
+        to_end = set()
+        # переписать цикл на pd.query()??
+        for row, text in zip(cls.__df.index, cls.__df['Текст'].values):
+            if (text == 'В тексте отсутствуют русские символы!' or
+                    re.search(r'Не удалось выгрузить данные!!!', text)):
+                to_end.add(row)
+        df_ending = pd.concat([df_ending, cls.__df.loc[list(to_end)]],
+                              ignore_index=True)
+
+        return df_ending, to_end
+
+    @classmethod
+    def __drop_rows(cls):
+
+        to_drop = set()
+        for row, link in zip(cls.__df.index, cls.__df['Ссылка'].values):
+            if re.search('schroders', link):
+                to_drop.add(row)
+        cls.__df.drop(to_drop, inplace=True)
+
+        to_drop = set()
+        for row, text, title, key in zip(
+                cls.__df.index,
+                cls.__df['Текст'].values,
+                cls.__df['Заголовок'].values,
+                cls.__df['Ключевое слово'].values
+        ):
+            if not len(key.split(',')) > 1:
+                if pd.notna(text):
+                    key_clear = re.sub(r'"', '', key)
+                    if (not re.search(rf'\b{key_clear}\b', text.lower()) and
+                            not re.search(rf'\b{key_clear}\b', title.lower())):
+                        to_drop.add(row)
+                else:
+                    to_drop.add(row)
+        cls.__df.drop(to_drop, inplace=True)
+
+        to_drop = set()
+        for row, text in zip(cls.__df.index, cls.__df['Текст'].values):
+            try:
+                if cld.detect(text)[2][0][0] != 'RUSSIAN':
+                    to_drop.add(row)
+            except cld.error:
+                to_drop.add(row)
+        cls.__df.drop(to_drop, inplace=True)
 
 
 if __name__ == '__main__':
+    # start_time = time.time()
     MainParser.get_articles()
+    # print("%s секунд" % (time.time() - start_time))
