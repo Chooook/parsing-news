@@ -1,17 +1,19 @@
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from time import time
 
 
 class Paths:
     """Data-container with paths."""
-    keys_path = 'data/key words/5keys/'
+    # keys_path = 'data/key words/5keys/'
     # keys_path = 'data/key words/yake/'
     # keys_path = 'data/key words/textrank/'
-    # keys_path = 'data/key words/lda/'
-    keys_dir_name = keys_path.split('/')[-2]
+    keys_path = 'data/key words/lda/'
+    # keys_dir_name = keys_path.split('/')[-2]
     output_path = 'output/'
     stopwords_path = 'data/stopwords/'
-    history_path = f'history/{keys_dir_name}/'
+    # history_path = f'history/{keys_dir_name}/'
+    history_path = f'history/'
     old_history_path = 'history/old/'
 
     # список путей для автоматического создания папок при их отсутствии
@@ -37,14 +39,14 @@ class Times:
     replace_delta = timedelta(days=90)
 
 
-# TODO: переменные класса через __init__()???
+@dataclass
 class Engine:
     """Search-engine parent-class."""
-    name = ''  # наименование поисковика
-    query_start = ''  # начало url поискового запроса
-    query_end_day = ''  # окончание url поискового запроса за день
-    query_end_week = ''  # окончание url поискового запроса за неделю
-    article_class = ''  # html-class элемента со ссылкой и заголовком
+    name: str  # наименование поисковика
+    query_start: str  # начало url поискового запроса
+    query_end_day: str  # окончание url поискового запроса за день
+    query_end_week: str  # окончание url поискового запроса за неделю
+    article_class: str  # html-class элемента со ссылкой и заголовком
 
     def get_article(self, el):
         """Load link and title.
@@ -52,7 +54,9 @@ class Engine:
         :param el: element found by soup.findAll by 'article_class'
         :type el: bs4.element.Tag
         """
-        pass
+        link = el['href']
+        title = el.text
+        return link, title
 
 
 class Ya(Engine):
@@ -87,16 +91,3 @@ class Bing(Engine):
     query_end_day = '+language%3aru&qft=interval%3d"7"&form=PTFTNR&cc=ru'
     query_end_week = '+language%3aru&qft=interval%3d"8"&form=PTFTNR&cc=ru'
     article_class = 'title'
-
-    def get_article(self, el) -> tuple[str, str]:
-        """Load link and title, using Bing News configuration.
-
-        :param el: element found by soup.findAll by Bing.article_class
-        :type el: bs4.element.Tag
-
-        :rtype: tuple[str, str]
-        :return: link and title of article
-        """
-        link = el['href']
-        title = el.text
-        return link, title
