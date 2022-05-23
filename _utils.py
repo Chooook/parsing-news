@@ -15,7 +15,7 @@ class Utils:
 
     @staticmethod
     def makedirs():
-        """Create necessary directories listed in _config.Paths"""
+        """Create necessary directories listed in _config.Paths."""
         for path in Paths.items:
             if not os.path.exists(path):
                 os.makedirs(path)
@@ -46,7 +46,7 @@ class Utils:
     @staticmethod
     def __read_files(path: str) -> set[str]:
         """Return lowercase stripped rows
-        contained in .csv files from 'path'
+        contained in .csv files from 'path'.
 
         :param path: directory to pass to Utils.search_files()
         :type path: str
@@ -165,7 +165,7 @@ class Utils:
 
     @classmethod
     def normal_str(cls, not_normal: str) -> str:
-        """Normalise string.
+        """Return normalised string.
 
         :param not_normal: not normalised string
         :type not_normal: str
