@@ -127,7 +127,8 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
-data/
 output/
 .idea
 history/
+/data/key words/lda/
+/data/key words/5keys/

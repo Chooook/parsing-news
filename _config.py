@@ -6,8 +6,6 @@ from time import time
 class Paths:
     """Data-container with paths."""
     keys_path = 'data/key words/5keys/'
-    # keys_path = 'data/key words/yake/'
-    # keys_path = 'data/key words/textrank/'
     # keys_path = 'data/key words/lda/'
     # keys_dir_name = keys_path.split('/')[-2]
     output_path = 'output/'
@@ -18,8 +16,7 @@ class Paths:
 
     # список путей для автоматического создания папок при их отсутствии
     items = (keys_path, output_path, stopwords_path,
-             history_path, old_history_path
-             )
+             history_path, old_history_path)
 
 
 class Times:
