@@ -80,10 +80,10 @@ class Ya(Engine):
         title = el.div.span.text
         return link, title
 
-#
-# class Bing(Engine):
-#     name = 'Bing News'
-#     query_start = 'https://www.bing.com/news/search?q='
-#     query_end_day = '+language%3aru&qft=interval%3d"7"&form=PTFTNR&cc=ru'
-#     query_end_week = '+language%3aru&qft=interval%3d"8"&form=PTFTNR&cc=ru'
-#     article_class = 'title'
+
+class Bing(Engine):
+    name = 'Bing News'
+    query_start = 'https://www.bing.com/news/search?q='
+    query_end_day = '+language%3aru&qft=interval%3d"7"&form=PTFTNR&cc=ru'
+    query_end_week = '+language%3aru&qft=interval%3d"8"&form=PTFTNR&cc=ru'
+    article_class = 'title'
