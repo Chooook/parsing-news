@@ -5,10 +5,10 @@ from time import time
 
 class Paths:
     """Data-container with paths."""
-    # keys_path = 'data/key words/5keys/'
+    keys_path = 'data/key words/5keys/'
     # keys_path = 'data/key words/yake/'
     # keys_path = 'data/key words/textrank/'
-    keys_path = 'data/key words/lda/'
+    # keys_path = 'data/key words/lda/'
     # keys_dir_name = keys_path.split('/')[-2]
     output_path = 'output/'
     stopwords_path = 'data/stopwords/'
@@ -27,7 +27,6 @@ class Times:
     today = datetime.today()
     today_str = today.strftime('%Y%m%d')
     launch_time_str = today.strftime('%Y.%m.%d %H-%M-%S')
-    yesterday_str = (today - timedelta(days=1)).strftime('%Y%m%d')
     week_ago_str = (today - timedelta(days=6)).strftime('%Y%m%d')
     unix_now_str = str(int(time())) + '000'
     unix_week_str = str((int(time()) - 86400 * 6)) + '000'
@@ -62,7 +61,7 @@ class Engine:
 class Ya(Engine):
     name = 'Yandex News'
     query_start = 'https://newssearch.yandex.ru/news/search?text='
-    query_end_day = f'+date%3A{Times.yesterday_str}&flat=1&sortby=date' \
+    query_end_day = f'+date%3A{Times.today_str}&flat=1&sortby=date' \
                     f'&filter_date={Times.unix_now_str}'
     query_end_week = f'+date%3A{Times.week_ago_str}..{Times.today_str}' \
                      '&flat=1&sortby=date&filter_date=' \
@@ -84,10 +83,10 @@ class Ya(Engine):
         title = el.div.span.text
         return link, title
 
-
-class Bing(Engine):
-    name = 'Bing News'
-    query_start = 'https://www.bing.com/news/search?q='
-    query_end_day = '+language%3aru&qft=interval%3d"7"&form=PTFTNR&cc=ru'
-    query_end_week = '+language%3aru&qft=interval%3d"8"&form=PTFTNR&cc=ru'
-    article_class = 'title'
+#
+# class Bing(Engine):
+#     name = 'Bing News'
+#     query_start = 'https://www.bing.com/news/search?q='
+#     query_end_day = '+language%3aru&qft=interval%3d"7"&form=PTFTNR&cc=ru'
+#     query_end_week = '+language%3aru&qft=interval%3d"8"&form=PTFTNR&cc=ru'
+#     article_class = 'title'
