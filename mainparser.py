@@ -25,6 +25,7 @@ class MainParser:
         cls.__keys = Utils.read_keys()
 
         keys_for_table, links, titles = [], [], []
+        search_links = []
 
         for engine in Engine.__subclasses__():
             qs = engine.query_start
@@ -39,13 +40,15 @@ class MainParser:
                 keys_for_table += k
                 links += l
                 titles += t
+                search_links += [query for _ in range(len(k))]
 
         cls.__session.close()
 
         cls.__df = pd.DataFrame({
             'Ключевое слово': keys_for_table,
             'Заголовок': titles,
-            'Ссылка': links
+            'Ссылка': links,
+            'Поисковой url': search_links
         })
         cls.__df.drop_duplicates(['Ссылка'], inplace=True, ignore_index=True)
         cls.__df, history_df = History.check(cls.__df)

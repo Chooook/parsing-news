@@ -96,9 +96,10 @@ class TextParser:
         key_clear = re.sub(r'"', '', key)
 
         for par in pretext:
-            if ((par.strip() and len(par.split(' ')) >= 2 and
-                 par.strip()[-1] in '!;?:,.') or
-                    re.search(rf'\b{key_clear}\b', par.lower())):
+            if (((par.strip() and len(par.split(' ')) >= 2 and
+                    par.strip()[-1] in '!;?:,.') or
+                    re.search(rf'\b{key_clear}\b', par.lower())) and
+                    par not in corr_text):
                 corr_text.append(par)
         corr_text = '\n'.join(corr_text)
         corr_text = re.sub(r'\n{2,}', r'\n', corr_text)
