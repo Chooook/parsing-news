@@ -20,10 +20,10 @@ class History:
     def check(cls, df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
         cls.df = df
         old_links, old_titles = History.__read()
-        df.drop(History.__links_check(old_links), inplace=True)
-        _history_df = df.loc[:, ['Заголовок', 'Ссылка']]
-        print(f'Новых строк для обновления истории: {len(df.index)}')
-        if old_titles and not df.empty:
+        cls.df.drop(History.__links_check(old_links), inplace=True)
+        _history_df = cls.df.loc[:, ['Заголовок', 'Ссылка']]
+        print(f'Новых строк для обновления истории: {len(cls.df.index)}')
+        if old_titles and not cls.df.empty:
             print(f'Строк в истории: {len(old_titles)}'
                   # 'Проверка займет до'
                   # f' {round(len(old_titles)*len(df.index)*0.003)}'
@@ -31,14 +31,14 @@ class History:
                   )
         time.sleep(0.1)  # для корректного вывода tqdm в консоли PyCharm
         if old_titles:
-            df.drop(History.__titles_check(old_titles),
-                    inplace=True
-                    )
+            cls.df.drop(History.__titles_check(old_titles),
+                        inplace=True
+                        )
         _history_df['Заголовок'] = [
             Utils.normal_str(title) for title
             in _history_df['Заголовок'].values
-            ]
-        return df, _history_df
+        ]
+        return cls.df, _history_df
 
     @staticmethod
     def __read() -> tuple[set[str], set[str]]:
@@ -76,10 +76,10 @@ class History:
                         hist_file = pd.read_csv(path + filename, sep=';')
                         __old_links = __old_links.union(
                             set(hist_file['Ссылка'].tolist())
-                            )
+                        )
                         __old_titles = __old_titles.union(
                             set(hist_file['Заголовок'].tolist())
-                            )
+                        )
                     except pd.errors.EmptyDataError:
                         print(f'В файле "{filename}" нет истории.')
                         continue
@@ -122,7 +122,7 @@ class History:
         for index, title in tqdm(
                 list(zip(cls.df.index, cls.df['Заголовок'].values)),
                 desc='Очистка по похожим заголовкам из истории'
-                ):
+        ):
             for old_title in old_t:
                 nf_title = Utils.normal_str(title)
                 if fuzz.token_sort_ratio(

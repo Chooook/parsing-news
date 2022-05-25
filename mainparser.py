@@ -55,19 +55,18 @@ class MainParser:
         time.sleep(0.1)  # для корректного вывода tqdm в консоли PyCharm
 
         cls.__df.drop(MainParser.__titles_check(), inplace=True)
-        __df = TextParser.parser(cls.__df)
-
+        cls.__df = TextParser.parser(cls.__df)
         df_ending, to_drop = MainParser.__replace_rows()
         cls.__df.drop(to_drop, inplace=True)
         MainParser.__drop_rows()
         cls.__df = pd.concat([cls.__df, df_ending], ignore_index=True)
 
-        __df.to_excel(Paths.output_path +
-                      # f'result_{Paths.keys_dir_name}'
-                      f'result'
-                      f'_{Times.launch_time_str}.xlsx',
-                      index=False
-                      )
+        cls.__df.to_excel(Paths.output_path +
+                          # f'result_{Paths.keys_dir_name}'
+                          f'result'
+                          f'_{Times.launch_time_str}.xlsx',
+                          index=False
+                          )
         history_df.to_csv(Paths.history_path +
                           f'history_{Times.launch_time_str}.csv',
                           sep=';',
@@ -78,6 +77,20 @@ class MainParser:
     def __links_and_titles(cls, key: str, q: str, art_cls: str,
                            eng: Engine.__subclasses__()
                            ) -> tuple[list[str], list[str], list[str]]:
+        """Return lists of keys, links and titles for search query.
+
+        :param key: keyword for search
+        :type key: str
+        :param q: search link
+        :type q: str
+        :param art_cls: html class with title and link
+        :type art_cls: str
+        :param eng: search engine
+        :type eng: Engine.__subclass__
+
+        :rtype: tuple[list[str], list[str], list[str]]
+        :return: 3 lists with keys, links and titles for search query
+        """
         try:
             response = cls.__session.get(q, timeout=10)
 
@@ -128,16 +141,16 @@ class MainParser:
         return to_drop
 
     @classmethod
-    def __replace_rows(cls):
-        """
+    def __replace_rows(cls) -> tuple[pd.DataFrame, set[int]]:
+        """Return pd.Dataframe with articles to add it to the end of
+        result df and set of ints to drop them from result df.
 
-        :rtype:
-        :return:
+        :rtype: tuple[pd.Dataframe, set[int]]
+        :return: pd.Dataframe with articles and set of ints-indexes
         """
         df_ending = pd.DataFrame()
 
         to_end = set()
-        # переписать цикл на pd.query()??
         for row, text in zip(cls.__df.index, cls.__df['Текст'].values):
             if (text == 'В тексте отсутствуют русские символы!' or
                     re.search(r'Не удалось выгрузить данные!!!', text)):
@@ -149,7 +162,11 @@ class MainParser:
 
     @classmethod
     def __drop_rows(cls):
-
+        """Drop articles from result df:
+        with "schroders" in url;
+        without keyword in text;
+        with non-russian text.
+        """
         to_drop = set()
         for row, link in zip(cls.__df.index, cls.__df['Ссылка'].values):
             if re.search('schroders', link):
