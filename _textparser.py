@@ -12,7 +12,7 @@ from _utils import Utils
 class TextParser:
     # определение кодировки в редких случаях работает с ошибками
     # необходимо решить проблему (проверка не дает правильную оценку)
-    __charsets = {'utf-8', 'windows-1251', 'iso-8859-5'}
+    # __charsets = ['utf-8', 'windows-1251', 'iso-8859-5']
     __session = None
     __df = pd.DataFrame()
 
@@ -64,20 +64,13 @@ class TextParser:
             Utils.check_connection(cls.__session)
             return f'Не удалось выгрузить данные!!! Ошибка: {err}.'
         else:
-            soup = BeautifulSoup(response.text, 'lxml')
-            text = soup.get_text(separator='\n', strip=True)
-            if re.search(r'[А-Яа-я]', text):
-                return text
-            else:
-                chardet_set = set()
-                chardet_set.add(chardet.detect
-                                (response.content).get('encoding'))
-                for charset in cls.__charsets.union(chardet_set):
-                    response.encoding = charset
-                    soup = BeautifulSoup(response.text, 'lxml')
-                    text = soup.get_text(separator='\n', strip=True)
-                    if re.search(r'[А-Яа-я]', text):
-                        return text
+            cdet_charset = [chardet.detect(response.content).get('encoding')]
+            for charset in [response.encoding] + cdet_charset:
+                response.encoding = charset
+                soup = BeautifulSoup(response.text, 'lxml')
+                text = soup.get_text(separator='\n', strip=True)
+                if re.search(r'[А-Яа-я]', text):
+                    return text
             return 'В тексте отсутствуют русские символы!'
 
     @staticmethod
