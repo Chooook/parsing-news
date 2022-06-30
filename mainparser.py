@@ -62,8 +62,8 @@ class MainParser:
         cls.__df = pd.concat([cls.__df, df_ending], ignore_index=True)
 
         cls.__df.to_excel(Paths.output_path +
-                          # f'result_{Paths.keys_dir_name}'
-                          f'result'
+                          f'result_{Paths.keys_dir_name}'
+                          # 'result'
                           f'_{Times.launch_time_str}.xlsx',
                           index=False
                           )

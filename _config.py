@@ -5,13 +5,13 @@ from time import time
 
 class Paths:
     """Data-container with paths."""
-    keys_path = 'data/key words/5keys/'
-    # keys_path = 'data/key words/lda/'
-    # keys_dir_name = keys_path.split('/')[-2]
+    keys_path = f'data/keywords/{input("Директория с ключевыми словами: ")}/'
+    # keys_path = 'data/keywords/5keys/'
+    keys_dir_name = keys_path.split('/')[-2]
     output_path = 'output/'
     stopwords_path = 'data/stopwords/'
-    # history_path = f'history/{keys_dir_name}/'
-    history_path = f'history/'
+    history_path = f'history/{keys_dir_name}/'
+    # history_path = f'history/'
     old_history_path = 'history/old/'
 
     # список путей для автоматического создания папок при их отсутствии
@@ -58,22 +58,15 @@ class Engine:
 class Ya(Engine):
     name = 'Yandex News'
     query_start = 'https://newssearch.yandex.ru/news/search?text='
-    query_end_day = f'+date%3A{Times.today_str}&flat=1&sortby=date' \
-                    f'&filter_date={Times.unix_now_str}'
-    query_end_week = f'+date%3A{Times.week_ago_str}..{Times.today_str}' \
-                     '&flat=1&sortby=date&filter_date=' \
-                     f'{Times.unix_week_str}%2C{Times.unix_now_str}'
+    query_end_day = (f'+date%3A{Times.today_str}&flat=1&sortby=date'
+                     f'&filter_date={Times.unix_now_str}')
+    query_end_week = (f'+date%3A{Times.week_ago_str}..{Times.today_str}'
+                      '&flat=1&sortby=date&filter_date='
+                      f'{Times.unix_week_str}%2C{Times.unix_now_str}')
     article_class = 'mg-snippet__url'
 
     def get_article(self, el) -> tuple[str, str]:
-        """Load link and title, using Yandex News configuration.
-
-        :param el: element found by soup.findAll by Ya.article_class
-        :type el: bs4.element.Tag
-
-        :rtype: tuple[str, str]
-        :return: link and title of article
-        """
+        """Load link and title, using Yandex News configuration."""
         link = el['href']
         tail = link[link.find('utm') - 1:]
         link = link.replace(tail, '')
