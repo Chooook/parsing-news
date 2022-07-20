@@ -71,7 +71,7 @@ class TextParser:
                 text = soup.get_text(separator='\n', strip=True)
                 if re.search(r'[А-Яа-я]', text):
                     return text
-            return 'В тексте отсутствуют русские символы!'
+            return 'Не удалось выгрузить русский текст!'
 
     @staticmethod
     def __correct_text(text, key):
