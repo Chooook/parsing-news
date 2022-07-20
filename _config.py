@@ -1,12 +1,11 @@
-from dataclasses import dataclass
-from datetime import datetime, timedelta
-from time import time
+from datetime import datetime as dt, timedelta
+
+import pandas as pd
 
 
 class Paths:
     """Data-container with paths."""
     keys_path = f'data/keywords/{input("Директория с ключевыми словами: ")}/'
-    # keys_path = 'data/keywords/5keys/'
     keys_dir_name = keys_path.split('/')[-2]
     output_path = 'output/'
     stopwords_path = 'data/stopwords/'
@@ -21,12 +20,48 @@ class Paths:
 
 class Times:
     """Data-container with time variables."""
-    today = datetime.today()
+
+    @staticmethod
+    def __get_data(desc: str = 'вашу') -> dt.date:
+        date = None
+
+        while not date:
+            try:
+                date = dt.strptime(
+                    input(f'Введите {desc} дату в (формате ddmmYYYY): '),
+                    '%d%m%Y'
+                )
+
+            except ValueError:
+                print('Неверный формат даты!')
+
+        return date
+
+    @staticmethod
+    def __get_list_of_dates(
+            first_date: dt,
+            second_date: dt
+    ) -> list[dt]:
+
+        dates_list = []
+
+        if first_date == second_date:
+            dates_list.append(first_date)
+            return dates_list
+
+        if first_date > second_date:
+            first_date, second_date = second_date, first_date
+
+        dates_list = pd.date_range(first_date, second_date).to_list()
+
+        return dates_list
+
+    first_date = __get_data('первую')
+    second_date = __get_data('вторую')
+    dates_list = __get_list_of_dates(first_date, second_date)
+    today = dt.today()
     today_str = today.strftime('%Y%m%d')
     launch_time_str = today.strftime('%Y.%m.%d %H-%M-%S')
-    week_ago_str = (today - timedelta(days=6)).strftime('%Y%m%d')
-    unix_now_str = str(int(time())) + '000'
-    unix_week_str = str((int(time()) - 86400 * 6)) + '000'
 
     # за сколько дней будет использоваться история:
     history_delta = timedelta(days=14)
@@ -35,48 +70,29 @@ class Times:
     replace_delta = timedelta(days=90)
 
 
-@dataclass
-class Engine:
-    """Search-engine parent-class."""
-    name: str  # наименование поисковика
-    query_start: str  # начало url поискового запроса
-    query_end_day: str  # окончание url поискового запроса за день
-    query_end_week: str  # окончание url поискового запроса за неделю
-    article_class: str  # html-class элемента со ссылкой и заголовком
-
-    def get_article(self, el):
-        """Load link and title.
-
-        :param el: element found by soup.findAll by 'article_class'
-        :type el: bs4.element.Tag
-        """
-        link = el['href']
-        title = el.text
-        return link, title
-
-
-class Ya(Engine):
+class Ya:
+    """Search-engine class."""
+    # наименование поисковика
     name = 'Yandex News'
+    # начало url поискового запроса
     query_start = 'https://newssearch.yandex.ru/news/search?text='
-    query_end_day = (f'+date%3A{Times.today_str}&flat=1&sortby=date'
-                     f'&filter_date={Times.unix_now_str}')
-    query_end_week = (f'+date%3A{Times.week_ago_str}..{Times.today_str}'
-                      '&flat=1&sortby=date&filter_date='
-                      f'{Times.unix_week_str}%2C{Times.unix_now_str}')
+    # html-class элемента со ссылкой и заголовком
     article_class = 'mg-snippet__url'
 
-    def get_article(self, el) -> tuple[str, str]:
+    @staticmethod
+    def query_end(date: dt):
+        qend = (
+            f'+date%3A{date.strftime("%Y%m%d")}..{date.strftime("%Y%m%d")}'
+            '&flat=1&sortby=date&filter_date='
+            f'{int(date.timestamp() * 1000)}%2C{int(date.timestamp() * 1000)}'
+        )
+        return qend
+
+    @staticmethod
+    def get_article(el) -> tuple[str, str]:
         """Load link and title, using Yandex News configuration."""
         link = el['href']
         tail = link[link.find('utm') - 1:]
         link = link.replace(tail, '')
         title = el.div.span.text
         return link, title
-
-
-class Bing(Engine):
-    name = 'Bing News'
-    query_start = 'https://www.bing.com/news/search?q='
-    query_end_day = '+language%3aru&qft=interval%3d"7"&form=PTFTNR&cc=ru'
-    query_end_week = '+language%3aru&qft=interval%3d"8"&form=PTFTNR&cc=ru'
-    article_class = 'title'
