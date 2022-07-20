@@ -1,5 +1,5 @@
 import re
-import time
+from time import sleep
 
 import pandas as pd
 import pycld2 as cld
@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 from rapidfuzz import fuzz
 from tqdm import tqdm
 
-from _config import Paths, Engine, Times
+from _config import Paths, Times, Ya
 from _history import History
 from _textparser import TextParser
 from _utils import Utils
@@ -19,40 +19,16 @@ class MainParser:
     __df = pd.DataFrame()
 
     @classmethod
-    def get_articles(cls):
+    def main(cls):
         Utils.makedirs()
         cls.__session = Utils.create_session()
         cls.__keys = Utils.read_keys()
 
-        keys_for_table, links, titles = [], [], []
-        search_links = []
+        MainParser.get_articles()
 
-        for engine in Engine.__subclasses__():
-            qs = engine.query_start
-            qe = engine.query_end_day
-            art_cls = engine.article_class
-            for key in tqdm(cls.__keys,
-                            desc=f'Выгрузка ссылок из {engine.name}'
-                            ):
-                query = qs + key + qe
-                k, l, t = MainParser.__links_and_titles(key, query,
-                                                        art_cls, engine)
-                keys_for_table += k
-                links += l
-                titles += t
-                search_links += [query for _ in range(len(k))]
-
-        cls.__session.close()
-
-        cls.__df = pd.DataFrame({
-            'Ключевое слово': keys_for_table,
-            'Заголовок': titles,
-            'Ссылка': links,
-            'Поисковой url': search_links
-        })
         cls.__df.drop_duplicates(['Ссылка'], inplace=True, ignore_index=True)
         cls.__df, history_df = History.check(cls.__df)
-        time.sleep(0.1)  # для корректного вывода tqdm в консоли PyCharm
+        sleep(0.1)  # для корректного вывода tqdm в консоли PyCharm
 
         cls.__df.drop(MainParser.__titles_check(), inplace=True)
         cls.__df = TextParser.parser(cls.__df)
@@ -74,9 +50,38 @@ class MainParser:
                           )
 
     @classmethod
-    def __links_and_titles(cls, key: str, q: str, art_cls: str,
-                           eng: Engine.__subclasses__()
-                           ) -> tuple[list[str], list[str], list[str]]:
+    def get_articles(cls):
+        keys_for_table, links, titles = [], [], []
+        search_links = []
+
+        for date in Times.dates_list:
+            qs = Ya.query_start
+            qe = Ya.query_end(date)
+            art_cls = Ya.article_class
+            for key in tqdm(
+                    cls.__keys,
+                    desc=f'Выгрузка ссылок из {Ya.name} за {date.date()}'
+            ):
+                query = qs + key + qe
+                k, l, t = MainParser.__links_and_titles(key, query, art_cls)
+                keys_for_table += k
+                links += l
+                titles += t
+                search_links += [query for _ in range(len(k))]
+
+        cls.__session.close()
+
+        cls.__df = pd.DataFrame({
+            'Ключевое слово': keys_for_table,
+            'Заголовок': titles,
+            'Ссылка': links,
+            'Поисковой url': search_links
+        })
+
+    @classmethod
+    def __links_and_titles(
+            cls, key: str, q: str, art_cls: str
+    ) -> tuple[list[str], list[str], list[str]]:
         """Return lists of keys, links and titles for search query.
 
         :param key: keyword for search
@@ -85,8 +90,6 @@ class MainParser:
         :type q: str
         :param art_cls: html class with title and link
         :type art_cls: str
-        :param eng: search engine
-        :type eng: Engine.__subclass__
 
         :rtype: tuple[list[str], list[str], list[str]]
         :return: 3 lists with keys, links and titles for search query
@@ -96,24 +99,23 @@ class MainParser:
 
         except IOError as http_err:
             print(f'Запрос "{key}" не выполнен! '
-                  f'Проблемы с интернет подключением:\n'
-                  f'{http_err}')
-            Utils.check_connection(cls.__session)
-            return [], [], []
+                  'Проблемы с интернет подключением:\n'
+                  f'{http_err}\nПовторная попытка подключения...')
+            # Utils.check_connection(cls.__session)
+            return MainParser.__links_and_titles(key, q, art_cls)
 
-        # TODO: сделать перезапуск итерации при ошибке выполнения запроса
-        #  и ограничение по количеству попыток
+        # TODO: сделать ограничение по количеству попыток повтора
         except Exception as err:
             print(f'Запрос "{key}" не выполнен! Ошибка:\n'
-                  f'{err}')
-            Utils.check_connection(cls.__session)
-            return [], [], []
+                  f'{err}\nПовторная попытка подключения...')
+            # Utils.check_connection(cls.__session)
+            return MainParser.__links_and_titles(key, q, art_cls)
 
         else:
             keys_for_table, links, titles = [], [], []
             soup = BeautifulSoup(response.text, 'lxml')
             for el in soup.findAll({'a': True}, class_=art_cls):
-                link, title = eng.get_article(eng, el)
+                link, title = Ya.get_article(el)
                 keys_for_table.append(key)
                 links.append(link)
                 titles.append(title)
@@ -201,6 +203,4 @@ class MainParser:
 
 
 if __name__ == '__main__':
-    # start_time = time.time()
-    MainParser.get_articles()
-    # print("%s секунд" % (time.time() - start_time))
+    MainParser.main()
