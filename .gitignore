@@ -2,5 +2,4 @@
 venv/
 output/
 history/
-data/key words/lda/
-data/key words/5keys/
+data/keywords/
